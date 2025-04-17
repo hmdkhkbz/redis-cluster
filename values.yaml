@@ -10,4 +10,4 @@ storage:
 redis:
   auth:
     enabled: true
-    password: "$REDIS_PASS"
+    password: "REDIS_PASS"
