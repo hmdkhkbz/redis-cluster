@@ -1,0 +1,36 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: redis-cluster-init
+  namespace: rf
+  labels:
+    app: redis-cluster
+  annotations:
+    "helm.sh/hook": post-install
+    "helm.sh/hook-weight": "1"
+spec:
+  backoffLimit: 4
+  template:
+    spec:
+      containers:
+        - name: redis-cluster-init
+          image: redis:7.2.7
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              # Wait for Redis pods to be ready
+              echo "Waiting for Redis pods to be ready..."
+              until kubectl get pods -n rf -l app=redis-cluster -o jsonpath='{.items[*].status.phase}' | grep -q "Running"; do
+                sleep 2
+              done
+              echo "All Redis pods are running, proceeding with cluster setup."
+
+              # Get the IPs of all Redis pods
+              PODS=$(kubectl get pods -n rf -l app=redis-cluster -o=jsonpath='{.items[*].status.podIP}')
+
+              # Initialize Redis Cluster with the pods
+              echo "Initializing Redis cluster..."
+              kubectl exec -it redis-0 -n rf -- redis-cli --cluster create $PODS --cluster-replicas 1
+              echo "Redis cluster initialization completed."
+
+      restartPolicy: Never
