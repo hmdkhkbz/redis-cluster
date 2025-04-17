@@ -9,3 +9,6 @@ data:
     cluster-node-timeout 5000
     appendonly yes
     dir /data
+    {{- if .Values.redis.auth.enabled }}
+    requirepass {{ .Values.redis.auth.password }}
+    {{- end }}
