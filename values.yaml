@@ -1,0 +1,58 @@
+cluster:
+  enabled: true
+  nodes: 6
+  replicas: 1
+
+auth:
+  enabled: true
+  password: "RedisPassword"
+
+persistence:
+  enabled: true
+  storageClass: "standard"  
+  accessModes:
+    - ReadWriteOnce
+  size: 8Gi
+
+resources:
+  requests:
+    memory: 512Mi
+    cpu: 250m
+  limits:
+    memory: 1Gi
+    cpu: 500m
+
+affinity:
+  podAntiAffinity:
+    requiredDuringSchedulingIgnoredDuringExecution:
+      - labelSelector:
+          matchExpressions:
+            - key: app.kubernetes.io/name
+              operator: In
+              values:
+                - redis-cluster
+        topologyKey: "kubernetes.io/hostname"
+
+metrics:
+  enabled: true
+  serviceMonitor:
+    enabled: false   # Set to true if using Prometheus Operator
+
+networkPolicy:
+  enabled: false     # Enable only if you're managing your own CNI policies
+
+rbac:
+  create: true
+
+serviceAccount:
+  create: true
+
+tls:
+  enabled: false     # Enable if you plan to expose Redis securely outside
+
+service:
+  type: ClusterIP
+
+nodeSelector: {}
+
+tolerations: []
