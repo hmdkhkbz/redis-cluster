@@ -9,31 +9,54 @@ metadata:
     "helm.sh/hook-delete-policy": before-hook-creation
 spec:
   backoffLimit: 3
-  ttlSecondsAfterFinished: 600  # Automatically delete job after 10 minutes if successful
+  ttlSecondsAfterFinished: 600
   template:
     spec:
       restartPolicy: OnFailure
       containers:
         - name: redis-cluster-init
-          image: redis:7.2-alpine
+          image: bitnami/kubectl:latest  # Or a specific version
+          env:
+            - name: REDIS_REPLICAS
+              value: "{{ .Values.redis.replicas | default 6 }}"
+            - name: RELEASE_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
           command:
             - sh
             - -c
             - |
-              echo "Waiting for Redis pods..."
-              while [ $(kubectl get pods -n rf -l app=redis -o jsonpath='{.items[?(@.status.phase=="Running")].metadata.name}' | wc -w) -lt 6 ]; do
-                echo "Waiting for all Redis pods to be Running...";
+              echo "Waiting for $REDIS_REPLICAS Redis pods in namespace $RELEASE_NAMESPACE to be Running..."
+              while [ $(kubectl get pods -n "$RELEASE_NAMESPACE" -l app=redis -o jsonpath='{.items[?(@.status.phase=="Running")].metadata.name}' | wc -w) -lt "$REDIS_REPLICAS" ]; do
+                echo "Waiting...";
                 sleep 3;
               done
-              echo "Checking cluster state..."
-              redis-cli -h redis-0.redis-headless -p 6379 cluster info | grep 'cluster_state:ok' && echo "Cluster already initialized" && exit 0
 
-              echo "Creating Redis cluster..."
-              redis-cli --cluster create \
-                $(getent hosts redis-0.redis-headless | awk '{print $1}'):6379 \
-                $(getent hosts redis-1.redis-headless | awk '{print $1}'):6379 \
-                $(getent hosts redis-2.redis-headless | awk '{print $1}'):6379 \
-                $(getent hosts redis-3.redis-headless | awk '{print $1}'):6379 \
-                $(getent hosts redis-4.redis-headless | awk '{print $1}'):6379 \
-                $(getent hosts redis-5.redis-headless | awk '{print $1}'):6379 \
-                --cluster-replicas 1
+              echo "Checking cluster state..."
+              if kubectl exec -n "$RELEASE_NAMESPACE" "redis-0" -- redis-cli cluster info | grep 'cluster_state:ok'; then
+                echo "Cluster already initialized. Exiting."
+                exit 0
+              fi
+
+              echo "Creating Redis cluster with $REDIS_REPLICAS nodes and 1 replica per master..."
+              CLUSTER_NODES=""
+              for i in $(seq 0 $((REDIS_REPLICAS - 1))); do
+                POD_NAME="redis-$i"
+                SERVICE_NAME="redis-headless"
+                NAMESPACE="$RELEASE_NAMESPACE"
+                IP=$(kubectl get pod -n "$NAMESPACE" "$POD_NAME" -o jsonpath='{.status.podIP}')
+                CLUSTER_NODES="$CLUSTER_NODES $IP:6379"
+              done
+
+              echo "Executing: redis-cli --cluster create $CLUSTER_NODES --cluster-replicas 1"
+              # You might need to execute the cluster create command from *inside* one of the Redis pods
+              # as the init container might not have direct network access to all Redis pods yet.
+              # A better approach is to target one of the Redis pods for the cluster creation.
+              FIRST_REDIS_POD=$(kubectl get pods -n "$RELEASE_NAMESPACE" -l app=redis -o jsonpath='{.items[0].metadata.name}')
+              if kubectl exec -n "$RELEASE_NAMESPACE" "$FIRST_REDIS_POD" -- redis-cli --cluster create $CLUSTER_NODES --cluster-replicas 1 --cluster-yes; then
+                echo "Redis cluster created successfully."
+              else
+                echo "Error creating Redis cluster."
+                exit 1
+              fi
