@@ -2,35 +2,38 @@ apiVersion: batch/v1
 kind: Job
 metadata:
   name: redis-cluster-init
-  namespace: rf
   labels:
-    app: redis-cluster
+    app: redis
   annotations:
     "helm.sh/hook": post-install
-    "helm.sh/hook-weight": "1"
+    "helm.sh/hook-delete-policy": before-hook-creation
 spec:
-  backoffLimit: 4
+  backoffLimit: 3
+  ttlSecondsAfterFinished: 600  # Automatically delete job after 10 minutes if successful
   template:
     spec:
+      restartPolicy: OnFailure
       containers:
         - name: redis-cluster-init
-          image: redis:7.2.7
-          command: ["/bin/sh", "-c"]
-          args:
+          image: redis:7.2-alpine
+          command:
+            - sh
+            - -c
             - |
-              # Wait for Redis pods to be ready
-              echo "Waiting for Redis pods to be ready..."
-              until kubectl get pods -n rf -l app=redis-cluster -o jsonpath='{.items[*].status.phase}' | grep -q "Running"; do
-                sleep 2
+              echo "Waiting for Redis pods..."
+              while [ $(kubectl get pods -n rf -l app=redis -o jsonpath='{.items[?(@.status.phase=="Running")].metadata.name}' | wc -w) -lt 6 ]; do
+                echo "Waiting for all Redis pods to be Running...";
+                sleep 3;
               done
-              echo "All Redis pods are running, proceeding with cluster setup."
+              echo "Checking cluster state..."
+              redis-cli -h redis-0.redis-headless -p 6379 cluster info | grep 'cluster_state:ok' && echo "Cluster already initialized" && exit 0
 
-              # Get the IPs of all Redis pods
-              PODS=$(kubectl get pods -n rf -l app=redis-cluster -o=jsonpath='{.items[*].status.podIP}')
-
-              # Initialize Redis Cluster with the pods
-              echo "Initializing Redis cluster..."
-              kubectl exec -it redis-0 -n rf -- redis-cli --cluster create $PODS --cluster-replicas 1
-              echo "Redis cluster initialization completed."
-
-      restartPolicy: Never
+              echo "Creating Redis cluster..."
+              redis-cli --cluster create \
+                $(getent hosts redis-0.redis-headless | awk '{print $1}'):6379 \
+                $(getent hosts redis-1.redis-headless | awk '{print $1}'):6379 \
+                $(getent hosts redis-2.redis-headless | awk '{print $1}'):6379 \
+                $(getent hosts redis-3.redis-headless | awk '{print $1}'):6379 \
+                $(getent hosts redis-4.redis-headless | awk '{print $1}'):6379 \
+                $(getent hosts redis-5.redis-headless | awk '{print $1}'):6379 \
+                --cluster-replicas 1
