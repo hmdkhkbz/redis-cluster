@@ -54,7 +54,7 @@ spec:
               # as the init container might not have direct network access to all Redis pods yet.
               # A better approach is to target one of the Redis pods for the cluster creation.
               FIRST_REDIS_POD=$(kubectl get pods -n "$RELEASE_NAMESPACE" -l app=redis -o jsonpath='{.items[0].metadata.name}')
-              if kubectl exec -n "$RELEASE_NAMESPACE" "$FIRST_REDIS_POD" -- redis-cli --cluster create $CLUSTER_NODES -a $REDIS_PASS --cluster-replicas 1 --cluster-yes; then
+              if kubectl exec -n "$RELEASE_NAMESPACE" "$FIRST_REDIS_POD" -- redis-cli --cluster create $CLUSTER_NODES -a REDIS_PASS --cluster-replicas 1 --cluster-yes; then
                 echo "Redis cluster created successfully."
               else
                 echo "Error creating Redis cluster."
