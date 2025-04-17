@@ -7,7 +7,12 @@ data:
     cluster-enabled yes
     cluster-config-file nodes.conf
     cluster-node-timeout 5000
+    maxmemory 2gb
+    maxmemory-policy allkeys-lru
     appendonly yes
+    appendfsync everysec
+    tcp-keepalive 60
+    maxclients 10000
     dir /data
     {{- if .Values.redis.auth.enabled }}
     requirepass {{ .Values.redis.auth.password }}
