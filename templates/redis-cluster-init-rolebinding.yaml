@@ -1,0 +1,13 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: redis-cluster-init-rolebinding
+  namespace: {{ .Release.Namespace }}
+subjects:
+- kind: ServiceAccount
+  name: default  # Assuming your Job uses the default ServiceAccount
+  namespace: {{ .Release.Namespace }}
+roleRef:
+  kind: Role
+  name: redis-cluster-init-role
+  apiGroup: rbac.authorization.k8s.io
