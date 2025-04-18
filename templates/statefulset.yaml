@@ -4,7 +4,7 @@ metadata:
   name: redis
 spec:
   serviceName: "redis-headless"
-  replicas: 6
+  replicas: {{ .Values.replicaCount }}
   selector:
     matchLabels:
       app: redis
@@ -15,7 +15,8 @@ spec:
     spec:
       containers:
         - name: redis
-          image: redis:7.2-alpine
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
           command:
             - "redis-server"
             - "/etc/redis/redis.conf"
@@ -30,6 +31,35 @@ spec:
               mountPath: /data
             - name: config
               mountPath: /etc/redis
+          resources: {{- toYaml .Values.resources | nindent 12 }}
+
+        - name: redis-exporter
+          image: oliver006/redis_exporter:v1.60.0
+          args:
+            - "--redis.addr=redis://localhost:6379"
+            {{- if .Values.redis.auth.enabled }}
+            - "--redis.password=$(REDIS_PASSWORD)"
+            {{- end }}
+          env:
+            {{- if .Values.redis.auth.enabled }}
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: redis-auth
+                  key: redis-password
+            {{- end }}
+          ports:
+            - name: metrics
+              containerPort: 9121
+              protocol: TCP
+          resources:
+            limits:
+              cpu: 100m
+              memory: 64Mi
+            requests:
+              cpu: 50m
+              memory: 32Mi
+
       volumes:
         - name: config
           configMap:
@@ -39,7 +69,7 @@ spec:
         name: data
       spec:
         accessModes: [ "ReadWriteOnce" ]
-        storageClassName: "standard" # Replace with your StorageClass
+        storageClassName: {{ .Values.storage.class | default "standard" }}
         resources:
           requests:
-            storage: 8Gi
+            storage: {{ .Values.storage.size | default "8Gi" }}
