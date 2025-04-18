@@ -1,50 +1,18 @@
 stages:
   - deploy
-  - test
 
 variables:
-  KUBE_NAMESPACE: "hmd" # Define your Kubernetes namespace
-  HELM_RELEASE_NAME: "redis-cluster" # Define your Helm release name
-  CHART_PATH: "."      # Path to your Helm chart within the repository
+  KUBE_NAMESPACE: "hmd" 
+  HELM_RELEASE_NAME: "redis-cluster" 
+  CHART_PATH: "."     
 
 deploy:
   stage: deploy
   image:
-    name: alpine/helm:3.14.1 # Use a specific and recent Helm version for stability
+    name: alpine/helm:3.14.1 
     entrypoint: [""]
   script:
     - echo "Deploying/Upgrading Redis Cluster using Helm..."
-    - helm upgrade --install "$HELM_RELEASE_NAME" "$CHART_PATH" --kubeconfig "$KUBE_CONFIG" -n "$KUBE_NAMESPACE" -f values.yaml
-    - echo "Helm deployment completed."
-  environment:
-    name: production # Or your target environment (e.g., staging)
-    url: $KUBE_INGRESS_BASE_DOMAIN # If applicable
-  rules:
-    - if: $CI_COMMIT_BRANCH == "main" # Or your production branch
-      when: manual # Or your desired trigger (e.g., on merge, manual)
-
-test:
-  stage: test
-  image: curlimages/curl:latest # A lightweight image with curl for basic testing
-  dependencies:
-    - deploy
-  script:
-    - echo "Performing basic health checks on Redis..."
-    - # Replace with your actual health check logic
-    - # This is a placeholder - you'll need to adapt it based on how you expose Redis
-    - # and what tools you have available in your test environment.
-    - # Example using kubectl port-forward and redis-cli (not ideal for CI, but illustrative):
-    # - kubectl port-forward --namespace "$KUBE_NAMESPACE" service/"$HELM_RELEASE_NAME"-master 6379:6379 &
-    # - sleep 5 # Give port-forward time to start
-    # - if curl -s -o /dev/null -w "%{http_code}" http://localhost:6379; then
-    # -   echo "Redis endpoint is reachable (HTTP)." # This is likely wrong for raw Redis
-    # - else
-    # -   echo "Error: Redis endpoint is not reachable (HTTP)."
-    # -   exit 1
-    # - fi
-    - echo "Basic health checks completed (replace with real tests)."
-  environment:
-    name: production # Matching the deploy environment
-  rules:
-    - if: $CI_COMMIT_BRANCH == "main"
-      when: on_success # Run tests only if deployment was successful
+    - helm upgrade --install "$HELM_RELEASE_NAME" "$CHART_PATH" --kubeconfig "$KUBE_CONFIG" -n "$KUBE_NAMESPACE"
+    - echo "$(kubectl exec -it redis-0 -n redis -- redis-cli -c cluster info)"
+    - echo "$(kubectl exec -it redis-0 -n redis -- redis-cli -c cluster nodes)"
