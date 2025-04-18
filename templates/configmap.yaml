@@ -6,13 +6,28 @@ data:
   redis.conf: |
     cluster-enabled yes
     cluster-config-file nodes.conf
-    cluster-node-timeout 5000
+    cluster-node-timeout 8000
+    cluster-require-full-coverage yes
+    cluster-allow-replica-migration yes
+    cluster-allow-reads-when-down yes
+    aof-rewrite-incremental-fsync yes
     maxmemory 2gb
     maxmemory-policy allkeys-lru
     appendonly yes
     appendfsync everysec
     tcp-keepalive 60
     maxclients 10000
+    replica-serve-stale-data yes
+    replica-read-only yes
+    repl-diskless-sync yes
+    repl-diskless-sync-delay 5
+    loglevel notice
+    slowlog-max-len 256
+    slowlog-log-slower-than 10000
+    latency-monitor-threshold 100
+    client-output-buffer-limit pubsub 256mb 128mb 60
+    client-output-buffer-limit normal 0 0 0
+    protected-mode yes
     dir /data
     {{- if .Values.redis.auth.enabled }}
     requirepass {{ .Values.redis.auth.password }}
