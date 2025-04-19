@@ -29,6 +29,4 @@ data:
     client-output-buffer-limit normal 0 0 0
     protected-mode yes
     dir /data
-    {{- if .Values.redis.auth.enabled }}
-    requirepass {{ .Values.redis.auth.password }}
-    {{- end }}
+    requirepass $REDIS_PASS

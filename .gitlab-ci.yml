@@ -1,18 +1,19 @@
 stages:
-  - deploy
+  - deploy-stage
 
 variables:
-  KUBE_NAMESPACE: "hmd" 
+  KUBE_NAMESPACE: "vpc" 
   HELM_RELEASE_NAME: "redis-cluster" 
   CHART_PATH: "."     
 
-deploy:
-  stage: deploy
+deploy-stage:
+  stage: deploy-stage
   image:
     name: alpine/helm:3.14.1 
     entrypoint: [""]
   script:
     - echo "Deploying/Upgrading Redis Cluster using Helm..."
-    - helm upgrade --install "$HELM_RELEASE_NAME" "$CHART_PATH" --kubeconfig "$KUBE_CONFIG" -n "$KUBE_NAMESPACE"
-    - echo "$(kubectl exec -it redis-0 -n redis -- redis-cli -c cluster info)"
-    - echo "$(kubectl exec -it redis-0 -n redis -- redis-cli -c cluster nodes)"
+    - helm upgrade --install "$HELM_RELEASE_NAME" "$CHART_PATH" --kubeconfig "$CI_KUBE_CONFIG_STG" -n "$KUBE_NAMESPACE"
+  when: manual
+  only:
+    - develop

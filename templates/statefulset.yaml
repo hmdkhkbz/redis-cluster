@@ -25,18 +25,18 @@ spec:
             - "--appendonly"
             - "yes"
           ports:
-            - containerPort: 6379
+            - containerPort: {{ .Values.redis.port | default 6379 }}
           volumeMounts:
             - name: data
               mountPath: /data
             - name: config
               mountPath: /etc/redis
-          resources: {{- toYaml .Values.resources | nindent 12 }}
+          resources: {{- toYaml .Values.redis.resources | nindent 12 }}
 
         - name: redis-exporter
           image: oliver006/redis_exporter:v1.60.0
           args:
-            - "--redis.addr=redis://localhost:6379"
+            - "--redis.addr=redis://localhost:{{ .Values.redis.port | default 6379 }}"
             {{- if .Values.redis.auth.enabled }}
             - "--redis.password=$(REDIS_PASSWORD)"
             {{- end }}
@@ -50,15 +50,9 @@ spec:
             {{- end }}
           ports:
             - name: metrics
-              containerPort: 9121
+              containerPort: {{ .Values.redisExporter.port | default 9121 }}
               protocol: TCP
-          resources:
-            limits:
-              cpu: 100m
-              memory: 64Mi
-            requests:
-              cpu: 50m
-              memory: 32Mi
+          resources: {{- toYaml .Values.redisExporter.resources | nindent 12 }}
 
       volumes:
         - name: config
