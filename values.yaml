@@ -3,28 +3,33 @@ image:
   repository: redis
   tag: 7.2-alpine
   pullPolicy: IfNotPresent
-resources: {} 
+resources: {}
 storage:
-  size: 8Gi
+  size: 1Gi
   class: standard
 redis:
+  service:
+    name: redis
+    appLabel: redis
+    port: 6379
+    targetPort: 6379
   auth:
     enabled: true
   port: 6379
   resources:
     limits:
-      cpu: "2"
-      memory: 9Gi
+      cpu: 500m
+      memory: 256Mi
     requests:
-      cpu: "1"
-      memory: 4Gi
+      cpu: 500m
+      memory: 256Mi
 
 redisExporter:
   port: 9121
   resources:
     limits:
-      cpu: 500m
-      memory: 256Mi
+      cpu: 200m
+      memory: 156Mi
     requests:
-      cpu: 500m
-      memory: 256Mi
+      cpu: 200m
+      memory: 156Mi
