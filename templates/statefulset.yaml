@@ -67,3 +67,4 @@ spec:
         resources:
           requests:
             storage: {{ .Values.storage.size | default "8Gi" }}
+            
